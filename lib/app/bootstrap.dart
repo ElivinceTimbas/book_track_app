@@ -7,6 +7,7 @@ import '../features/reading/data/reading_cache.dart';
 import '../features/reading/data/rss_parser.dart';
 import '../features/reading/presentation/reading_controller.dart';
 import 'folio_app.dart';
+import 'month_share_dependencies.dart';
 
 /// Composition root: owns the HTTP client and presentation controller.
 class ReadingApplication extends StatefulWidget {
@@ -23,6 +24,7 @@ class _ReadingApplicationState extends State<ReadingApplication> {
   @override
   void initState() {
     super.initState();
+    registerMonthSharing();
     _client = http.Client();
     _controller = ReadingController(
       repository: CachedReadingRepository(

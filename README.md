@@ -28,13 +28,33 @@ Equivalent connections for the same user ID and shelf are rejected, even if host
 ## Features
 
 - Monthly calendar with day selection, month navigation, and a Today shortcut.
+- Accessible calendar event symbols and counts: **Finished** (check-circle), **Started** (play-circle), and **Shelf date** (bookmark outline). The legend, day markers, activity and exported images use the same mapping, never color alone.
+- **Share month** previews and shares a high-resolution, calendar-only PNG of the viewed month, with every book cover on its recorded date.
 - Monthly finished-book and total book-page counts, current reads, and dated shelf entries.
 - Searchable library with reading-status filters and book details.
 - Multiple RSS feeds, duplicate-book handling, manual refresh, and local offline caching.
 - Genuine empty, loading, connected-empty and persistent error states, with safe cache-load retry.
 - Responsive desktop and mobile layouts.
 
-Calendar dates use `user_read_at`, then `user_started_at`, then `user_date_added` (or `pubDate`). Entries without a date remain in the library. An added date is explicitly labeled **Added to shelf**, never presented as a completion date. Impossible dates are rejected. The calendar is not a daily reading log, and book-page totals are not measured reading progress.
+Calendar rows reserve space only for the event categories actually present in the month. At large text sizes or unusually large day counts, the weekday header and grid scroll sideways together rather than shrinking text or wrapping the digits of a count; an inline hint explains this.
+
+Calendar dates use `user_read_at`, then `user_started_at`, then `user_date_added` (or `pubDate`). Entries without a date remain in the library. The calendar labels an added date **Shelf date**, never a completion date. Details describe it as **Added to shelf**. Impossible dates are rejected. The calendar is not a daily reading log, and book-page totals are not measured reading progress.
+
+### Share a calendar month
+
+Navigate to any month and choose **Share month**, then review **Share MONTH YEAR** and choose **Share image**. The preview snapshots the entire viewed month from the deduplicated library when opened: selecting a day, searching/filtering the library, refreshing feeds, or changing the underlying month cannot change that open preview. Close and reopen to capture new data. Empty actual months can also be shared.
+
+The preview has no visible book list. Its image semantics retain every included book’s full Unicode title, author, recorded date and exact event label from the immutable snapshot, without connection metadata. A concise month summary and privacy notice remain visible; the dialog scrolls at larger text sizes so **Share image** remains reachable. These accessibility labels belong to the in-app preview, not embedded PNG metadata.
+
+The opaque Folio-paper PNG includes branding, month/year, a rounded white calendar card with a single border, Monday-first dates with blank adjacent-month cells, actual covers, individual event badges and the matching legend. All books appear **exactly once** in their date cells, in two columns; each week grows to contain its busiest day, without a four-cover cap, per-day tally strips, overflow notices or a title appendix. Populated days have subtly rounded surfaces. Each book uses only its one actual recorded date; there are no invented reading ranges. Missing, corrupt, oversized or unavailable covers use a **No cover** title placeholder, not fabricated artwork. Placeholder titles may be abbreviated visually; full titles remain available through the preview’s screen-reader label. A compact provenance footer (and a genuine empty-month message when appropriate) follows the calendar. The interactive Calendar page’s legends, tallies and activity are unchanged. Cover loading/decoding completes before sharing.
+
+Exports are named `folio-YYYY-MM.png` and shared as `image/png` with a short accessible count summary. The original high-resolution PNG bytes are shared, not the independently downsampled preview. They include **book covers, placeholder titles and recorded dates**, but no account IDs, feed URLs, keys, navigation or selection state. Check the preview for personal information in book titles before sharing. Cancelling the preview cancels cover requests; dismissing a native share sheet does not claim success. Some share targets accept only the image and omit accompanying text. Choosing a share action is not proof of delivery.
+
+Image quality and safety: the 1120-logical-pixel layout is painted on a true **2× canvas, producing a 2240px-wide PNG** with twice the logical height and crisp rasterized text. Logical margins are 56px and columns 144px; week height is `50 + 82 × max(1, ceil(busiest-day books / 2))`. The card radius is 30 logical pixels (similar in proportion to the app’s 13px card), with 8px day corners. Before any cover request or output allocation, exports enforce **100 books, 8192 physical pixels per axis and 12 megapixels total** (at most about 46 MiB per RGBA output buffer). A normal six-week month with up to four books per day is about 7.5 megapixels and fits reliably. Concentrated busy days may exceed the image budget even below 100 books: the error states **“This month has too many books for one image. No image was created and no books were omitted.”** There is no silent downscaling, clipping, or request to disconnect shelves. There is no appendix-based height or title-length limit.
+
+Cover requests have four workers, a 12-second total deadline per cover, 8-second connect/receive limits, three redirects and a 3 MiB compressed-byte limit each. Image descriptors larger than 24 megapixels or 12000px on either axis are rejected before pixel decoding. Covers decode for their 96×144 physical destination using crop-aware sizing, never upscale a small source, and cap the longest decoded edge at 512px to bound unusual aspect ratios. High-quality filtering is used when painting. Buffers, descriptors, codecs, decoded covers, pictures and output images are disposed. PNG encoding, native sharing and the 640px-wide preview can need additional transient memory; the 12MP output budget is deliberately conservative, not an unlimited-export guarantee.
+
+Native sharing uses `share_plus 13.3.1`: Flutter ≥3.38.1, Dart ≥3.10, iOS ≥13, macOS ≥10.15, Java 17, Kotlin ≥2.2, AGP ≥8.12.1 and Gradle ≥8.13. The checked-in targets meet these version requirements. **Adding/updating this native plugin requires a full rebuild**, not hot reload: stop the app, run `flutter pub get`, then `flutter run -d <device-id>` (or `flutter run -d macos`). The share popover anchors to the actual Share image button bounds on iPad/macOS. The plugin creates a temporary cached file for `XFile.fromData`; it is not a permanent photo-library save. The OS manages these temporary files; export PNGs may remain in the app cache after sharing. No photo-library permission is required.
 
 Goodreads can limit RSS to recent shelf entries. Folio cannot guarantee a complete history, import missing history, edit books or shelves, or write reading progress back to Goodreads. Each successful refresh replaces that shelf’s cached snapshot; it does not accumulate historical entries. Failed refreshes keep the previous cached books. **Connected** means shelves are configured locally, not that the service is live or the cache is fresh; each feed shows its last successful sync time.
 
@@ -51,9 +71,15 @@ flutter test
 
 ## Architecture
 
-The app uses a single reading feature with constructor injection and the existing
-`ChangeNotifier` / `ListenableBuilder` state management. There is no service
-locator, dependency-injection framework, or extra use-case/DTO layer.
+The existing RSS reading feature retains constructor injection and its
+`ChangeNotifier` / `ListenableBuilder` state management without changing its cache,
+repository or feed behavior. The isolated month-sharing flow uses a
+`flutter_bloc` Cubit with Equatable state, request guards, and factory/lazy
+registrations in `get_it` at the composition root. Its pure-Dart `CalendarMonth`
+snapshot and exporter/cover contracts are separate from the Dio cover adapter,
+canvas renderer and native sharing callback. Closing the preview owns and
+disposes its exporter, decoded images and network client. Tests inject cover,
+export and share implementations, never HTTP or native sheets.
 
 ```text
 lib/
@@ -114,3 +140,14 @@ and responsive UI flows at 320, 390 and 1400 pixels. Sample factories live only
 under `test/support/`; tests do not verify a real Goodreads account or live RSS
 availability. Tests use package imports across the `test`/`lib` boundary and
 relative imports within each source tree, following the Flutter lints.
+
+Calendar/export tests additionally cover date precedence and exact symbols/labels,
+mixed-category counts, normalization, leap days and six-week alignment, immutable
+viewed-month snapshots independent of selected day/refresh, dynamic week offsets,
+all covers in cells exactly once, nonvisual full-title accessibility, rounded card
+clipping/borders and absent tally/list strips, missing/corrupt/failed covers, bounded HTTP streams/deadlines and
+disposal, actual 2240px PNG pixels/dimensions/opacity and high-frequency cover detail, empty months and pre-load safety limits,
+preview errors/retry, duplicate request guards, share payload/filename/button
+rectangle, cancellation and late completions. Responsive calendar tests include
+320/390/1400px widths at 1× and 2× text scale. Native share-target behavior and
+delivery still require device testing on each target platform.

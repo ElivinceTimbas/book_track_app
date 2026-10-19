@@ -1,10 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../app/theme.dart';
 import '../../domain/book.dart';
-import '../book_labels.dart';
+import '../../domain/calendar_month.dart';
+import '../dialogs/share_month_dialog.dart';
 import '../widgets/book_cover.dart';
+import '../widgets/calendar_event_badge.dart';
 import '../widgets/book_metadata.dart';
 import '../widgets/folio_brand.dart';
 import '../widgets/page_components.dart';
@@ -20,6 +24,7 @@ class CalendarPage extends StatelessWidget {
     required this.onMonthChanged,
     required this.onDaySelected,
     required this.onBook,
+    this.onShareMonth,
   });
 
   final List<Book> allBooks;
@@ -30,6 +35,7 @@ class CalendarPage extends StatelessWidget {
   final ValueChanged<DateTime> onMonthChanged;
   final ValueChanged<DateTime?> onDaySelected;
   final ValueChanged<Book> onBook;
+  final ValueChanged<CalendarMonth>? onShareMonth;
 
   List<Book> get monthBooks => allBooks.where((book) {
     final date = book.calendarDate;
@@ -108,7 +114,7 @@ class CalendarPage extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 850;
-            final calendar = calendarCard();
+            final calendar = calendarCard(context);
             final aside = Column(
               children: [
                 currentlyReading(reading),
@@ -153,11 +159,7 @@ class CalendarPage extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Icon(icon, size: 17, color: olive),
-          ],
-        ),
+        Row(children: [Icon(icon, size: 17, color: olive)]),
         const SizedBox(height: 13),
         Text(value, style: editorial(29)),
         const SizedBox(height: 5),
@@ -173,7 +175,7 @@ class CalendarPage extends StatelessWidget {
     ),
   );
 
-  Widget calendarCard() => Container(
+  Widget calendarCard(BuildContext context) => Container(
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(13),
@@ -226,105 +228,183 @@ class CalendarPage extends StatelessWidget {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              for (final day in [
-                'MON',
-                'TUE',
-                'WED',
-                'THU',
-                'FRI',
-                'SAT',
-                'SUN',
-              ])
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final snapshot = CalendarMonth(month, allBooks);
+            final first = snapshot.month;
+            final start = DateTime(first.year, first.month, 2 - first.weekday);
+            final scale = MediaQuery.textScalerOf(context).scale(13) / 13;
+            final counter = TextPainter(
+              text: TextSpan(
+                text: '${snapshot.maxEventCount}',
+                style: DefaultTextStyle.of(context).style
+                    .copyWith(fontSize: 13),
+              ),
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout();
+            final countWidth = counter.width.ceilToDouble() + 2;
+            counter.dispose();
+            final gridWidth = math.max(
+              constraints.maxWidth,
+              20.0 + 7 * (10 + math.max(24 * scale, countWidth)),
+            );
+            final stackMarkers = (gridWidth - 20) / 7 - 10 < 21 + countWidth;
+            final dayHeight = math.max(
+              68.0,
+              14 +
+                  24 * scale +
+                  snapshot.maxEventCategories *
+                      (stackMarkers ? 22 + 20 * scale : 22 * scale),
+            );
+            return Column(
+              children: [
+                if (gridWidth > constraints.maxWidth)
+                  const Padding(
+                    padding: EdgeInsets.all(10),
                     child: Text(
-                      day,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: muted,
-                        fontSize: 9,
-                        letterSpacing: .7,
-                      ),
+                      'Scroll calendar sideways for larger text.',
+                      style: TextStyle(fontSize: 13, color: ink),
+                    ),
+                  ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: gridWidth,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Row(
+                            children: [
+                              for (final day in [
+                                'MON',
+                                'TUE',
+                                'WED',
+                                'THU',
+                                'FRI',
+                                'SAT',
+                                'SUN',
+                              ])
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: Text(
+                                      day,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: muted,
+                                        fontSize: 9,
+                                        letterSpacing: .7,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          child: Column(
+                            children: [
+                              for (var row = 0; row < snapshot.weeks; row++)
+                                Row(
+                                  children: [
+                                    for (var col = 0; col < 7; col++)
+                                      Expanded(
+                                        child: dayCell(
+                                          DateTime(
+                                            start.year,
+                                            start.month,
+                                            start.day + row * 7 + col,
+                                          ),
+                                          stackMarkers,
+                                          scale,
+                                          dayHeight,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final start = DateTime(month.year, month.month, 2 - month.weekday);
-            final days = DateTime(month.year, month.month + 1, 0).day;
-            final count = ((month.weekday - 1 + days) / 7).ceil() * 7;
-            final compact = constraints.maxWidth < 450;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Column(
-                children: [
-                  for (var row = 0; row < count ~/ 7; row++)
-                    Row(
-                      children: [
-                        for (var col = 0; col < 7; col++)
-                          Expanded(
-                            child: dayCell(
-                              DateTime(
-                                start.year,
-                                start.month,
-                                start.day + row * 7 + col,
-                              ),
-                              compact,
-                            ),
-                          ),
-                      ],
-                    ),
-                ],
-              ),
+              ],
             );
           },
         ),
         const Divider(height: 1),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Wrap(
-            spacing: 17,
-            runSpacing: 9,
-            children: [
-              legend('Finished', olive),
-              legend('Started', rust),
-              legend('Added to shelf', const Color(0xFFA8AD9B)),
-            ],
+          child: const CalendarLegend(),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final action = OutlinedButton.icon(
+                onPressed: () {
+                  final snapshot = CalendarMonth(month, allBooks);
+                  if (onShareMonth case final callback?) {
+                    callback(snapshot);
+                  } else {
+                    showShareMonth(context, snapshot);
+                  }
+                },
+                icon: const Icon(Icons.ios_share, size: 18),
+                label: const Text('Share month'),
+              );
+              return constraints.maxWidth < 450
+                  ? SizedBox(width: double.infinity, child: action)
+                  : Align(alignment: Alignment.centerRight, child: action);
+            },
           ),
         ),
       ],
     ),
   );
 
-  Widget dayCell(DateTime date, bool compact) {
+  Widget dayCell(
+    DateTime date,
+    bool stackMarkers,
+    double scale,
+    double height,
+  ) {
     final current = date.month == month.month;
     final today = DateUtils.isSameDay(date, DateTime.now());
     final selected = DateUtils.isSameDay(date, selectedDay);
     final books = allBooks
         .where((book) => DateUtils.isSameDay(book.calendarDate, date))
         .toList();
+    final counts = {
+      for (final event in CalendarEvent.values)
+        event: books.where((book) => CalendarEvent.of(book) == event).length,
+    };
+    void select() {
+      if (!current) onMonthChanged(DateTime(date.year, date.month));
+      onDaySelected(selected ? null : date);
+    }
+
     return Semantics(
       label:
-          '${DateFormat.yMMMMd().format(date)}, ${books.length} reading events',
+          '${DateFormat.yMMMMd().format(date)}, ${books.length} reading events'
+          '${counts.entries.where((entry) => entry.value > 0).map((entry) => ', ${entry.key.label}: ${entry.value}').join()}',
       selected: selected,
       button: true,
+      excludeSemantics: true,
+      onTap: select,
       child: InkWell(
-        onTap: () {
-          if (!current) onMonthChanged(DateTime(date.year, date.month));
-          onDaySelected(selected ? null : date);
-        },
+        onTap: select,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          height: compact ? 68 : 89,
+          height: height,
           margin: const EdgeInsets.all(2),
           padding: const EdgeInsets.fromLTRB(3, 5, 3, 4),
           decoration: BoxDecoration(
@@ -341,8 +421,8 @@ class CalendarPage extends StatelessWidget {
           child: Column(
             children: [
               Container(
-                width: 23,
-                height: 23,
+                width: 24 * scale,
+                height: 24 * scale,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: today ? olive : Colors.transparent,
@@ -365,38 +445,29 @@ class CalendarPage extends StatelessWidget {
               ),
               if (books.isNotEmpty && current) ...[
                 const SizedBox(height: 4),
-                if (!compact)
-                  SizedBox(
-                    height: 35,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        BookCover(
-                          book: books.first,
-                          width: 23,
-                          height: 34,
-                          radius: 2,
-                        ),
-                        if (books.length > 1)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 3),
-                            child: Text(
-                              '+${books.length - 1}',
-                              style: const TextStyle(fontSize: 9, color: olive),
+                for (final entry in counts.entries.where(
+                  (entry) => entry.value > 0,
+                ))
+                  stackMarkers
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              entry.key.icon,
+                              size: 18,
+                              color: entry.key.color,
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                Container(
-                  width: compact ? 5 : 12,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: eventColor(books.first),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                ),
+                            Text(
+                              '${entry.value}',
+                              style: const TextStyle(fontSize: 13, color: ink),
+                            ),
+                          ],
+                        )
+                      : CalendarEventBadge(
+                          entry.key,
+                          count: entry.value,
+                          label: false,
+                        ),
               ],
             ],
           ),
@@ -404,19 +475,6 @@ class CalendarPage extends StatelessWidget {
       ),
     );
   }
-
-  Widget legend(String label, Color color) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 6,
-        height: 6,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: muted, fontSize: 9)),
-    ],
-  );
 
   Widget currentlyReading(List<Book> reading) => Container(
     width: double.infinity,
@@ -433,7 +491,7 @@ class CalendarPage extends StatelessWidget {
           children: [
             Icon(Icons.bookmark_border_rounded, size: 15, color: olive),
             SizedBox(width: 8),
-            Eyebrow('ON YOUR NIGHTSTAND'),
+            Expanded(child: Eyebrow('ON YOUR NIGHTSTAND')),
           ],
         ),
         const SizedBox(height: 21),
@@ -517,7 +575,7 @@ class CalendarPage extends StatelessWidget {
           children: [
             Icon(Icons.wb_sunny_outlined, size: 16, color: rust),
             SizedBox(width: 8),
-            Eyebrow('A GENTLE REMINDER'),
+            Expanded(child: Eyebrow('A GENTLE REMINDER')),
           ],
         ),
         const SizedBox(height: 13),
@@ -564,9 +622,11 @@ class CalendarPage extends StatelessWidget {
                 ),
               )
             else
-              Text(
-                '${books.length} ${books.length == 1 ? 'moment' : 'moments'} this month',
-                style: const TextStyle(color: muted, fontSize: 10),
+              Flexible(
+                child: Text(
+                  '${books.length} ${books.length == 1 ? 'moment' : 'moments'} this month',
+                  style: const TextStyle(color: muted, fontSize: 10),
+                ),
               ),
           ],
         ),
@@ -639,26 +699,8 @@ class CalendarPage extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 6,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          book.readAt != null
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.bookmark_border_rounded,
-                          size: 11,
-                          color: eventColor(book),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          book.eventLabel,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: eventColor(book),
-                          ),
-                        ),
-                      ],
-                    ),
+                    if (CalendarEvent.of(book) case final event?)
+                      CalendarEventBadge(event),
                     if (book.rating > 0) RatingStars(book.rating),
                   ],
                 ),
