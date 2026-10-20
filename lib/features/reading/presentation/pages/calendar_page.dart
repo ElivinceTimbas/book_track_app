@@ -3,13 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../app/theme.dart';
-import '../../domain/book.dart';
-import '../../domain/calendar_month.dart';
-import '../dialogs/share_month_dialog.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/book.dart';
+import '../../domain/entities/calendar_month.dart';
 import '../widgets/book_cover.dart';
-import '../widgets/calendar_event_badge.dart';
 import '../widgets/book_metadata.dart';
+import '../widgets/calendar_event_badge.dart';
+import '../widgets/dialogs/share_month_dialog.dart';
 import '../widgets/folio_brand.dart';
 import '../widgets/page_components.dart';
 

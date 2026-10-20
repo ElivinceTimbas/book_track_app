@@ -1,9 +1,9 @@
 import 'dart:async';
 
-import 'package:book_track_app/features/reading/data/goodreads_source.dart';
-import 'package:book_track_app/features/reading/data/goodreads_url.dart';
-import 'package:book_track_app/features/reading/data/rss_parser.dart';
-import 'package:book_track_app/features/reading/domain/feed_exception.dart';
+import 'package:book_track_app/core/errors/feed_exception.dart';
+import 'package:book_track_app/features/reading/data/datasources/goodreads_source.dart';
+import 'package:book_track_app/features/reading/data/models/rss_parser.dart';
+import 'package:book_track_app/features/reading/domain/usecases/goodreads_connection.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

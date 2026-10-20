@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:book_track_app/features/reading/data/export_cover_source.dart';
+import 'package:book_track_app/features/reading/data/datasources/export_cover_source.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 

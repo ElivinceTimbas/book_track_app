@@ -1,6 +1,6 @@
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/reading_feed.dart';
-import 'package:book_track_app/features/reading/domain/reading_repository.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
+import 'package:book_track_app/features/reading/domain/entities/reading_feed.dart';
+import 'package:book_track_app/features/reading/domain/repositories/reading_repository.dart';
 
 Book sampleBook({
   String id = 'book',

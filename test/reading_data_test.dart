@@ -1,14 +1,14 @@
-import 'package:book_track_app/features/reading/data/cached_reading_repository.dart';
-import 'package:book_track_app/features/reading/data/feed_json.dart';
-import 'package:book_track_app/features/reading/data/goodreads_source.dart';
-import 'package:book_track_app/features/reading/data/goodreads_url.dart';
-import 'package:book_track_app/features/reading/data/reading_cache.dart';
-import 'package:book_track_app/features/reading/data/rss_parser.dart';
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/feed_exception.dart';
-import 'package:book_track_app/features/reading/presentation/book_labels.dart';
-import 'package:book_track_app/features/reading/presentation/reading_controller.dart';
-
+import 'package:book_track_app/core/errors/feed_exception.dart';
+import 'package:book_track_app/features/reading/data/datasources/goodreads_source.dart';
+import 'package:book_track_app/features/reading/data/datasources/reading_cache.dart';
+import 'package:book_track_app/features/reading/data/models/book_dto.dart';
+import 'package:book_track_app/features/reading/data/models/rss_parser.dart';
+import 'package:book_track_app/features/reading/data/repositories/cached_reading_repository.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
+import 'package:book_track_app/features/reading/domain/usecases/goodreads_connection.dart';
+import 'package:book_track_app/features/reading/domain/usecases/reading_library.dart';
+import 'package:book_track_app/features/reading/presentation/blocs/reading/reading_cubit.dart';
+import 'package:book_track_app/features/reading/presentation/widgets/book_labels.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -44,7 +44,7 @@ void main() {
     expect(feed.books[1].calendarDate, DateTime(2025, 5, 3));
     expect(feed.books[1].eventLabel, 'Added to shelf');
     expect(feed.books[2].calendarDate, isNull);
-    expect(bookFromJson(bookToJson(book)).readAt, book.readAt);
+    expect(BookDto.fromJson(BookDto.fromEntity(book).toJson()).toEntity().readAt, book.readAt);
   });
 
   test('Invalid links and non-RSS responses have actionable errors', () {
@@ -95,8 +95,8 @@ void main() {
         source: GoodreadsSource(client: client, parser: GoodreadsRssParser()),
         cache: SharedPreferencesReadingCache(),
       );
-      final store = ReadingController(repository: repository);
-      addTearDown(store.dispose);
+      final store = ReadingCubit(library: ReadingLibrary(repository: repository));
+      addTearDown(store.close);
       await store.load();
       expect(store.books, isEmpty);
       await store.addFeed(feedUrl);
@@ -109,8 +109,8 @@ void main() {
       expect(store.feeds, hasLength(2));
       expect(store.books, hasLength(3));
 
-      final restored = ReadingController(repository: repository);
-      addTearDown(restored.dispose);
+      final restored = ReadingCubit(library: ReadingLibrary(repository: repository));
+      addTearDown(restored.close);
       await restored.load();
       expect(restored.feeds, hasLength(2));
       expect(restored.books.first.title, store.books.first.title);

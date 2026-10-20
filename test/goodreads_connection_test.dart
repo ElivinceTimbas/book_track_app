@@ -1,5 +1,5 @@
-import 'package:book_track_app/features/reading/domain/feed_exception.dart';
-import 'package:book_track_app/features/reading/domain/goodreads_connection.dart';
+import 'package:book_track_app/core/errors/feed_exception.dart';
+import 'package:book_track_app/features/reading/domain/usecases/goodreads_connection.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

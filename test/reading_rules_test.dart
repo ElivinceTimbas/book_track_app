@@ -1,5 +1,5 @@
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/reading_rules.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
+import 'package:book_track_app/features/reading/domain/usecases/reading_rules.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/reading_fakes.dart';

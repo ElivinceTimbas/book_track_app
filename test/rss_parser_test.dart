@@ -1,6 +1,6 @@
-import 'package:book_track_app/features/reading/data/rss_parser.dart';
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/feed_exception.dart';
+import 'package:book_track_app/core/errors/feed_exception.dart';
+import 'package:book_track_app/features/reading/data/models/rss_parser.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const url = 'https://www.goodreads.com/review/list_rss/123?shelf=all';

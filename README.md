@@ -71,39 +71,50 @@ flutter test
 
 ## Architecture
 
-The existing RSS reading feature retains constructor injection and its
-`ChangeNotifier` / `ListenableBuilder` state management without changing its cache,
-repository or feed behavior. The isolated month-sharing flow uses a
-`flutter_bloc` Cubit with Equatable state, request guards, and factory/lazy
-registrations in `get_it` at the composition root. Its pure-Dart `CalendarMonth`
-snapshot and exporter/cover contracts are separate from the Dio cover adapter,
-canvas renderer and native sharing callback. Closing the preview owns and
-disposes its exporter, decoded images and network client. Tests inject cover,
-export and share implementations, never HTTP or native sheets.
+The app is organized by feature, with responsibilities separated inside each
+clean architecture layer. `ReadingLibrary` in `domain/usecases` owns shelf
+operations, the serialized queue and immutable saved snapshots. `ReadingCubit`
+and `MonthShareCubit` in `presentation/blocs` expose immutable Equatable states;
+pages observe them through `BlocBuilder`. Constructors receive their dependencies,
+and `core/di` owns concrete wiring and resource lifetimes.
 
 ```text
 lib/
-  main.dart                         # Flutter entry point
+  main.dart
   app/
-    bootstrap.dart                  # Composition and resource ownership
     folio_app.dart                   # MaterialApp
-    theme.dart                       # Original palette, fonts and theme
+  core/
+    di/                             # Bootstrap and dependency registrations
+    errors/                         # Exceptions shared across layers
+    theme/                          # Palette, fonts and app theme
+    utils/                          # Export cancellation
   features/reading/
-    domain/                         # Plain Dart entities, rules, source contract
-    data/                           # Goodreads HTTP, RSS, JSON and local cache
-    presentation/                   # Controller, labels and responsive UI
-      pages/                        # Calendar, library and connected feeds
-      dialogs/                      # Connect shelf and book details
-      widgets/                      # Shared visual components
+    presentation/
+      pages/                        # Reading home, calendar, books and feeds
+      widgets/                      # Reusable UI, dialogs and export painting
+      blocs/
+        reading/                    # ReadingCubit and ReadingState
+        month_share/                # MonthShareCubit and MonthShareState
+    domain/
+      entities/                     # Books, feeds, calendar and image values
+      repositories/                 # Reading, export, cover and sharing contracts
+      usecases/                     # Shelf operations, connection rules and merging
+    data/
+      repositories/                 # Implementations of domain contracts
+      datasources/                  # Goodreads HTTP, local cache and cover loading
+      models/                       # Book/feed DTOs and RSS deserialization
 ```
 
 Dependencies point inward: **presentation → domain ← data**. Domain has no
 Flutter, HTTP, XML, preferences, data, or presentation imports. Presentation
-depends on `ReadingRepository`, never on a concrete cache or network adapter.
+depends on the domain library and export/share contracts, never on concrete
+cache, network or native sharing adapters.
 The composition root is the only place wiring data and presentation together.
-The shared app theme is visual configuration, not a data dependency.
+Feature layers can use shared core errors and utilities; presentation also uses
+core theme resources. Core utilities do not depend on features. DI is the outer
+composition boundary and is never imported by a feature layer.
 
-- `Book` and `ReadingFeed` are immutable; feed books and controller collections
+- `Book` and `ReadingFeed` are immutable; feed books and Cubit state collections
   are defensive, unmodifiable snapshots. `mergeBooks` owns ID deduplication and
   descending calendar-date sorting. Calendar date precedence remains finished,
   started, then added. An undated book stays in the library.
@@ -115,27 +126,38 @@ The shared app theme is visual configuration, not a data dependency.
 - `GoodreadsSource` canonicalizes request URLs and handles HTTP errors and the
   25-second timeout. `GoodreadsRssParser` independently interprets RSS, preserving
   Goodreads' recorded day rather than shifting dates across time zones.
-- `SharedPreferencesReadingCache` and `feed_json.dart` own persistence. The
+- `SharedPreferencesReadingCache` owns local persistence; `BookDto` and
+  `ReadingFeedDto` map between the wire format and domain entities. The
   `folio.feeds.v1` key, JSON fields, enum names and ISO date encoding remain
   compatible with existing installs. A cache read never triggers a network call.
-- `ReadingController` loads cached shelves and derives books only from actual
+- `ReadingLibrary` loads cached shelves and derives books only from actual
   feeds. Load/add/remove/refresh share a serialized queue; a failed operation
   does not poison subsequent work. Add/remove/refresh publish feeds only after
   a successful save, and mutations require a successful cache load. Refresh
   fetches sequentially, retaining cached
   feeds for individual network failures and preserving all old state if the
-  final save fails. Navigation, visible search text (with a clear action), filters
+  final save fails. `ReadingCubit` delegates shelf operations and owns
+  loading/busy/syncing flags and UI errors in immutable `ReadingState` snapshots. Navigation, visible
+  search text (with a clear action), filters
   and selected dates stay in UI. Errors persist across page navigation.
-- `ReadingApplication` owns/disposes the controller and HTTP client. The
-  controller borrows its repository; the network adapter borrows its client.
-  Disposed controllers ignore late completions, stop further refresh requests,
-  and do not notify listeners or publish new state. Already-issued cache writes
+- `MonthShareCubit` depends on `MonthExporter` and `ImageSharer`. The renderer
+  stays in presentation because it paints Flutter visuals. `SharePlusImageSharer`
+  owns PNG payload construction and plugin result/error translation in data; its
+  domain contract uses plain Dart values for the popover bounds. Each preview
+  owns and disposes its exporter, cover client and decoded images.
+- `ReadingApplication` closes its Cubit and HTTP client. The
+  Cubit owns/disposes its library; the library borrows its repository and
+  the network adapter borrows its client.
+  Closed Cubits ignore late completions, stop further refresh requests,
+  and do not emit new state. Already-issued cache writes
   can finish; disposal is not cancellation or rollback of persistence.
 
-Tests cover pure domain rules, literal legacy JSON, cache/repository separation,
+Architecture tests enforce the responsibility folders, framework-free domain
+and core utilities, and inward dependency boundaries. Tests also cover library operations without a UI,
+pure domain rules, literal legacy JSON, cache/repository separation,
 URL construction/validation/query encoding, request/error/timeout behavior,
 RSS interpretation, fake-repository connection dialogs, serialized mutation
-races/failures, load-retry protection, controller lifecycle, search navigation,
+races/failures, load-retry protection, Cubit lifecycle, search navigation,
 and responsive UI flows at 320, 390 and 1400 pixels. Sample factories live only
 under `test/support/`; tests do not verify a real Goodreads account or live RSS
 availability. Tests use package imports across the `test`/`lib` boundary and

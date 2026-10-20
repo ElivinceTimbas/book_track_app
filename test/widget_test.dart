@@ -1,29 +1,29 @@
 import 'dart:async';
 
+import 'package:book_track_app/app/folio_app.dart';
+import 'package:book_track_app/core/di/bootstrap.dart';
+import 'package:book_track_app/core/errors/feed_exception.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
+import 'package:book_track_app/features/reading/domain/entities/reading_feed.dart';
+import 'package:book_track_app/features/reading/domain/usecases/reading_library.dart';
+import 'package:book_track_app/features/reading/presentation/blocs/reading/reading_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:book_track_app/app/bootstrap.dart';
-import 'package:book_track_app/app/folio_app.dart';
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/feed_exception.dart';
-import 'package:book_track_app/features/reading/domain/reading_feed.dart';
-import 'package:book_track_app/features/reading/presentation/reading_controller.dart';
-
 import 'support/reading_fakes.dart';
 
-Future<ReadingController> mountReadingApp(WidgetTester tester, FakeReadingRepository repository) async {
+Future<ReadingCubit> mountReadingApp(WidgetTester tester, FakeReadingRepository repository) async {
   tester.view.physicalSize = const Size(1400, 1000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  final controller = ReadingController(repository: repository);
-  addTearDown(controller.dispose);
+  final controller = ReadingCubit(library: ReadingLibrary(repository: repository));
+  addTearDown(controller.close);
   await controller.load();
-  await tester.pumpWidget(FolioApp(controller: controller));
+  await tester.pumpWidget(FolioApp(cubit: controller));
   await tester.pumpAndSettle();
   return controller;
 }
@@ -42,10 +42,10 @@ void main() {
   testWidgets('Pending cache load shows loading rather than books or a connection form', (tester) async {
     final pending = Completer<List<ReadingFeed>>();
     final repository = FakeReadingRepository()..onLoad = () => pending.future;
-    final controller = ReadingController(repository: repository);
-    addTearDown(controller.dispose);
+    final controller = ReadingCubit(library: ReadingLibrary(repository: repository));
+    addTearDown(controller.close);
     final loading = controller.load();
-    await tester.pumpWidget(FolioApp(controller: controller));
+    await tester.pumpWidget(FolioApp(cubit: controller));
     await tester.pump();
     expect(find.text('Loading saved shelves…'), findsOneWidget);
     expect(find.text('Connect Goodreads'), findsNothing);
@@ -281,11 +281,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final controller = ReadingController(repository: FakeReadingRepository()
-      ..stored = [sampleFeed(books: [sampleBook(title: 'The Midnight Library'), sampleBook(id: 'other', title: 'The Creative Act')])]);
-    addTearDown(controller.dispose);
+    final controller = ReadingCubit(library: ReadingLibrary(repository: FakeReadingRepository()
+      ..stored = [sampleFeed(books: [sampleBook(title: 'The Midnight Library'), sampleBook(id: 'other', title: 'The Creative Act')])]));
+    addTearDown(controller.close);
     await controller.load();
-    await tester.pumpWidget(FolioApp(controller: controller));
+    await tester.pumpWidget(FolioApp(cubit: controller));
     await tester.pumpAndSettle();
     await tester.tap(find.text('My books'));
     await tester.pumpAndSettle();
@@ -340,10 +340,10 @@ void main() {
               ],
             ),
           ];
-        final controller = ReadingController(repository: repository);
-        addTearDown(controller.dispose);
+        final controller = ReadingCubit(library: ReadingLibrary(repository: repository));
+        addTearDown(controller.close);
         await controller.load();
-        await tester.pumpWidget(FolioApp(controller: controller));
+        await tester.pumpWidget(FolioApp(cubit: controller));
         await tester.pumpAndSettle();
         expect(find.text('Connected'), findsOneWidget);
         expect(find.text('Undated chapter'), findsNothing);

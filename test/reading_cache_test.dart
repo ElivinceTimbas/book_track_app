@@ -1,9 +1,10 @@
 import 'dart:convert';
 
-import 'package:book_track_app/features/reading/data/feed_json.dart';
-import 'package:book_track_app/features/reading/data/reading_cache.dart';
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/feed_exception.dart';
+import 'package:book_track_app/core/errors/feed_exception.dart';
+import 'package:book_track_app/features/reading/data/datasources/reading_cache.dart';
+import 'package:book_track_app/features/reading/data/models/book_dto.dart';
+import 'package:book_track_app/features/reading/data/models/reading_feed_dto.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,7 +41,7 @@ void main() {
     expect(feed.books.first.calendarDate, DateTime(2025, 5, 7));
     expect(feed.books.first.addedAt!.isUtc, isTrue);
     expect(feed.books.last.calendarDate, isNull);
-    expect(feedToJson(feed), (jsonDecode(legacyJson) as List).single);
+    expect(ReadingFeedDto.fromEntity(feed).toJson(), (jsonDecode(legacyJson) as List).single);
     expect(() => feeds.clear(), throwsUnsupportedError);
     await cache.save(feeds);
     final preferences = await SharedPreferences.getInstance();
@@ -52,12 +53,12 @@ void main() {
   });
 
   test('Missing optional book fields retain legacy defaults', () {
-    final book = bookFromJson({
+    final book = BookDto.fromJson({
       'id': 'id',
       'title': 'Title',
       'author': 'Author',
       'status': 'toRead',
-    });
+    }).toEntity();
     expect(book.coverUrl, '');
     expect(book.pages, 0);
     expect(book.rating, 0);
@@ -107,7 +108,7 @@ void main() {
         ),
       );
       expect(preferences.key, 'folio.feeds.v1');
-      expect(jsonDecode(preferences.value!), [feedToJson(sampleFeed())]);
+      expect(jsonDecode(preferences.value!), [ReadingFeedDto.fromEntity(sampleFeed()).toJson()]);
     },
   );
 

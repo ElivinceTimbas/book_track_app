@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class FolioLogo extends StatelessWidget {
   const FolioLogo({super.key});

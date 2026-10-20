@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:book_track_app/app/theme.dart';
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/calendar_month.dart';
-import 'package:book_track_app/features/reading/domain/month_export.dart';
-import 'package:book_track_app/features/reading/presentation/export/month_image_renderer.dart';
+import 'package:book_track_app/core/errors/month_export_exception.dart';
+import 'package:book_track_app/core/theme/app_theme.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
+import 'package:book_track_app/features/reading/domain/entities/calendar_month.dart';
+import 'package:book_track_app/features/reading/domain/entities/month_image.dart';
+import 'package:book_track_app/features/reading/domain/repositories/cover_source.dart';
+import 'package:book_track_app/features/reading/presentation/widgets/export/month_image_renderer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

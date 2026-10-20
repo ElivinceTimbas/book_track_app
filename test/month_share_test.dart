@@ -1,14 +1,18 @@
 import 'dart:async';
 
-import 'package:book_track_app/app/theme.dart';
-import 'package:book_track_app/features/reading/domain/book.dart';
-import 'package:book_track_app/features/reading/domain/calendar_month.dart';
-import 'package:book_track_app/features/reading/domain/month_export.dart';
-import 'package:book_track_app/features/reading/presentation/dialogs/share_month_dialog.dart';
-import 'package:book_track_app/features/reading/presentation/export/month_image_renderer.dart';
-import 'package:book_track_app/features/reading/presentation/export/month_share_cubit.dart';
+import 'package:book_track_app/core/errors/month_export_exception.dart';
+import 'package:book_track_app/core/theme/app_theme.dart';
+import 'package:book_track_app/features/reading/data/repositories/share_plus_image_sharer.dart';
+import 'package:book_track_app/features/reading/domain/entities/book.dart';
+import 'package:book_track_app/features/reading/domain/entities/calendar_month.dart';
+import 'package:book_track_app/features/reading/domain/entities/month_image.dart';
+import 'package:book_track_app/features/reading/domain/repositories/month_exporter.dart';
+import 'package:book_track_app/features/reading/presentation/blocs/month_share/month_share_cubit.dart';
+import 'package:book_track_app/features/reading/presentation/blocs/month_share/month_share_state.dart';
 import 'package:book_track_app/features/reading/presentation/pages/calendar_page.dart';
 import 'package:book_track_app/features/reading/presentation/widgets/calendar_event_badge.dart';
+import 'package:book_track_app/features/reading/presentation/widgets/dialogs/share_month_dialog.dart';
+import 'package:book_track_app/features/reading/presentation/widgets/export/month_image_renderer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,10 +62,16 @@ void main() {
     final pending = Completer<ShareResult>();
     final params = <ShareParams>[];
     final exporter = StubExporter(image);
-    final cubit = MonthShareCubit(month, exporter, (value) {
-      params.add(value);
-      return pending.future;
-    });
+    final cubit = MonthShareCubit(
+      month,
+      exporter,
+      SharePlusImageSharer(
+        share: (value) {
+          params.add(value);
+          return pending.future;
+        },
+      ),
+    );
     addTearDown(cubit.close);
     await cubit.prepare();
     final sharing = cubit.share(origin);
@@ -91,7 +101,7 @@ void main() {
     final cubit = MonthShareCubit(
       month,
       exporter,
-      (_) async => ShareResult.unavailable,
+      SharePlusImageSharer(share: (_) async => ShareResult.unavailable),
     );
     addTearDown(cubit.close);
     final preparing = cubit.prepare();
@@ -112,11 +122,17 @@ void main() {
 
   test('MissingPlugin and platform failures are useful/retryable, no false success', () async {
     var calls = 0;
-    final cubit = MonthShareCubit(month, StubExporter(image), (_) async {
-      if (calls++ == 0) throw MissingPluginException();
-      if (calls == 2) throw PlatformException(code: 'unavailable');
-      return const ShareResult('target', ShareResultStatus.success);
-    });
+    final cubit = MonthShareCubit(
+      month,
+      StubExporter(image),
+      SharePlusImageSharer(
+        share: (_) async {
+          if (calls++ == 0) throw MissingPluginException();
+          if (calls == 2) throw PlatformException(code: 'unavailable');
+          return const ShareResult('target', ShareResultStatus.success);
+        },
+      ),
+    );
     addTearDown(cubit.close);
     await cubit.prepare();
     await cubit.share(origin);
@@ -136,7 +152,7 @@ void main() {
       final cubit = MonthShareCubit(
         month,
         exporter,
-        (_) async => ShareResult.unavailable,
+        SharePlusImageSharer(share: (_) async => ShareResult.unavailable),
       );
       final preparing = cubit.prepare();
       await cubit.close();
@@ -148,7 +164,7 @@ void main() {
       final other = MonthShareCubit(
         month,
         StubExporter(image),
-        (_) => sharePending.future,
+        SharePlusImageSharer(share: (_) => sharePending.future),
       );
       await other.prepare();
       final sharing = other.share(origin);
@@ -278,14 +294,19 @@ void main() {
                     onShareMonth: (snapshot) => showDialog<void>(
                       context: context,
                       builder: (_) => ShareMonthDialog(
-                        create: () =>
-                            MonthShareCubit(snapshot, exporter, (params) async {
+                        create: () => MonthShareCubit(
+                          snapshot,
+                          exporter,
+                          SharePlusImageSharer(
+                            share: (params) async {
                               shared.add(params);
                               return const ShareResult(
                                 '',
                                 ShareResultStatus.dismissed,
                               );
-                            }),
+                            },
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -349,7 +370,9 @@ void main() {
               create: () => MonthShareCubit(
                 month,
                 exporter,
-                (_) async => ShareResult.unavailable,
+                SharePlusImageSharer(
+                  share: (_) async => ShareResult.unavailable,
+                ),
               ),
             ),
           ),
@@ -426,7 +449,7 @@ void main() {
           return MonthShareCubit(
             snapshot,
             exporter,
-            (_) async => ShareResult.unavailable,
+            SharePlusImageSharer(share: (_) async => ShareResult.unavailable),
           );
         },
       );
@@ -518,12 +541,19 @@ void main() {
               ),
               child: Scaffold(
                 body: ShareMonthDialog(
-                  create: () => MonthShareCubit(snapshot, exporter, (
-                    params,
-                  ) async {
-                    shared.add(params);
-                    return const ShareResult('', ShareResultStatus.dismissed);
-                  }),
+                  create: () => MonthShareCubit(
+                    snapshot,
+                    exporter,
+                    SharePlusImageSharer(
+                      share: (params) async {
+                        shared.add(params);
+                        return const ShareResult(
+                          '',
+                          ShareResultStatus.dismissed,
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -617,7 +647,9 @@ void main() {
               create: () => MonthShareCubit(
                 month,
                 exporter,
-                (_) async => ShareResult.unavailable,
+                SharePlusImageSharer(
+                  share: (_) async => ShareResult.unavailable,
+                ),
               ),
             ),
           ),

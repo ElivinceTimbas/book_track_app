@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class PageHeading extends StatelessWidget {
   const PageHeading(this.title, this.subtitle, {super.key});

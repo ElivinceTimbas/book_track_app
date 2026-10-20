@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../app/theme.dart';
-import '../../domain/goodreads_connection.dart';
-import '../../domain/reading_feed.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/reading_feed.dart';
+import '../../domain/usecases/goodreads_connection.dart';
 import '../widgets/folio_brand.dart';
 import '../widgets/page_components.dart';
 

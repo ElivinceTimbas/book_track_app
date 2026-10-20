@@ -1,7 +1,7 @@
-import 'package:book_track_app/features/reading/data/cached_reading_repository.dart';
-import 'package:book_track_app/features/reading/data/goodreads_source.dart';
-import 'package:book_track_app/features/reading/data/reading_cache.dart';
-import 'package:book_track_app/features/reading/domain/reading_feed.dart';
+import 'package:book_track_app/features/reading/data/datasources/goodreads_source.dart';
+import 'package:book_track_app/features/reading/data/datasources/reading_cache.dart';
+import 'package:book_track_app/features/reading/data/repositories/cached_reading_repository.dart';
+import 'package:book_track_app/features/reading/domain/entities/reading_feed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/reading_fakes.dart';

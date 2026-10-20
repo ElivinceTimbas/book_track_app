@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme.dart';
-import '../../domain/calendar_month.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/calendar_month.dart';
 
 extension CalendarEventVisuals on CalendarEvent {
   IconData get icon => switch (this) {

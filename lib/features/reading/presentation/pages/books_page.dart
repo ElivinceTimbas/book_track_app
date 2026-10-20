@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme.dart';
-import '../../domain/book.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/book.dart';
 import '../widgets/book_cover.dart';
 import '../widgets/book_metadata.dart';
 import '../widgets/page_components.dart';

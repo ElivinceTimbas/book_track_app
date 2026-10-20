@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../../app/theme.dart';
-import '../../domain/book.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/book.dart';
 
 Color eventColor(Book book) => book.readAt != null
     ? olive
